@@ -1,10 +1,5 @@
 import type { MixSpaceAPI } from '../api'
-import type {
-  ContentType,
-  NoteFrontmatter,
-  NotePayload,
-  PostPayload,
-} from '../types'
+import type { ContentType, NoteFrontmatter, NotePayload, PostPayload } from '../types'
 
 /**
  * Detect content type based on frontmatter fields
@@ -97,7 +92,10 @@ export async function buildPostPayload(
       const tagsStr = frontmatter.tags.trim()
       // Handle empty array string "[]" or empty string
       if (tagsStr && tagsStr !== '[]' && tagsStr !== '[ ]') {
-        payload.tags = tagsStr.split(',').map((t) => t.trim()).filter(Boolean)
+        payload.tags = tagsStr
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean)
       }
     }
   }

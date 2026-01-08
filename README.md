@@ -9,6 +9,7 @@
 - **反向链接转换** - 同步时自动将 `[[Obsidian 链接]]` 转换为 Mix Space URL
 - **Frontmatter 自动补全** - 支持分类、专栏、心情、天气等字段的自动补全
 - **标题栏按钮** - 一键发布/更新当前文档
+- **多环境配置** - 支持多个 Profile，方便在生产环境和测试环境之间切换
 - **Dry Sync 调试** - 预览将要发送的 payload，方便调试
 
 ## 安装
@@ -32,8 +33,23 @@ pnpm run build
 
 在 Obsidian 设置 → Mix Space Publisher 中配置：
 
+### Profile（配置文件）
+
+插件支持多个 Profile，方便在不同环境之间切换：
+
+- **Production** - 生产环境
+- **Development** - 开发/测试环境
+- 可自定义添加更多配置
+
+点击 **+** 添加新 Profile，点击 **🗑** 删除当前 Profile。
+
+### API 设置
+
+每个 Profile 包含以下设置：
+
 | 设置 | 说明 | 示例 |
 |------|------|------|
+| Profile Name | 配置名称 | `Production` / `Development` |
 | API Endpoint | Mix Space API 地址 | `https://api.example.com/v2` |
 | Bearer Token | API 认证 Token | |
 | Site URL | 网站地址（用于反向链接转换） | `https://example.com` |

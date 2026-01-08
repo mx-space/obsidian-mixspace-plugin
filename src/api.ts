@@ -1,6 +1,6 @@
 import { requestUrl } from 'obsidian'
 import type {
-  MixSpaceSettings,
+  MixSpaceProfile,
   NotePayload,
   NoteResponse,
   PostPayload,
@@ -10,17 +10,21 @@ import type {
 } from './types'
 
 export class MixSpaceAPI {
-  constructor(private settings: MixSpaceSettings) {}
+  constructor(private profile: MixSpaceProfile) {}
+
+  updateProfile(profile: MixSpaceProfile) {
+    this.profile = profile
+  }
 
   private get headers() {
     return {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${this.settings.token}`,
+      Authorization: `Bearer ${this.profile.token}`,
     }
   }
 
   private get baseUrl() {
-    return this.settings.apiEndpoint.replace(/\/$/, '')
+    return this.profile.apiEndpoint.replace(/\/$/, '')
   }
 
   private async request<T>(

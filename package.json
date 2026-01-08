@@ -2,19 +2,45 @@
   "name": "obsidian-mixspace-plugin",
   "version": "0.1.0",
   "description": "Publish notes from Obsidian to Mix Space",
+  "type": "module",
   "main": "main.js",
   "scripts": {
-    "dev": "node esbuild.config.mjs",
-    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+    "dev": "tsdown --watch",
+    "build": "tsc -noEmit -skipLibCheck && NODE_ENV=production tsdown",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "prepare": "simple-git-hooks"
   },
-  "keywords": ["obsidian", "mixspace", "publish"],
+  "keywords": [
+    "obsidian",
+    "mixspace",
+    "publish"
+  ],
   "author": "Innei",
   "license": "MIT",
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@types/node": "^20.10.0",
     "builtin-modules": "^3.3.0",
     "esbuild": "^0.19.8",
+    "eslint": "^9.39.2",
+    "lint-staged": "^16.2.7",
     "obsidian": "latest",
-    "typescript": "^5.3.0"
+    "prettier": "^3.7.4",
+    "simple-git-hooks": "^2.13.1",
+    "tsdown": "0.19.0-beta.5",
+    "typescript": "^5.3.0",
+    "typescript-eslint": "^8.52.0"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm lint-staged"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   }
 }

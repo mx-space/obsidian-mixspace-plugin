@@ -4,7 +4,14 @@ import { CACHE_TTL, MOOD_OPTIONS, WEATHER_OPTIONS } from './constants'
 import { DrySyncModal } from './modals/DrySyncModal'
 import { MixSpaceSettingTab } from './settings'
 import { FrontmatterSuggest } from './suggest'
-import { DEFAULT_SETTINGS, type Category, type MixSpaceSettings, type NoteFrontmatter, type Topic } from './types'
+import {
+  DEFAULT_SETTINGS,
+  getActiveProfile,
+  type Category,
+  type MixSpaceSettings,
+  type NoteFrontmatter,
+  type Topic,
+} from './types'
 import { convertBacklinks, formatBacklinkErrors } from './utils/backlinks'
 import { parseFrontmatter } from './utils/frontmatter'
 import { buildNotePayload, buildPostPayload, detectContentType } from './utils/payload'
@@ -22,7 +29,9 @@ export default class MixSpacePlugin extends Plugin {
 
   async onload() {
     await this.loadSettings()
-    this.api = new MixSpaceAPI(this.settings)
+
+    const profile = getActiveProfile(this.settings)
+    this.api = new MixSpaceAPI(profile)
 
     // Register frontmatter suggest
     this.registerEditorSuggest(new FrontmatterSuggest(this))
@@ -42,7 +51,7 @@ export default class MixSpacePlugin extends Plugin {
     this.registerTitleBarEvents()
 
     // Pre-fetch metadata on load
-    if (this.settings.apiEndpoint && this.settings.token) {
+    if (profile.apiEndpoint && profile.token) {
       this.refreshMetadataCache()
     }
   }
@@ -102,12 +111,39 @@ export default class MixSpacePlugin extends Plugin {
   // ===== Settings =====
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData())
+    const data = await this.loadData()
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, data)
+
+    // Migration: convert old flat settings to new profile-based settings
+    if (data && !data.profiles && (data.apiEndpoint || data.token)) {
+      this.settings = {
+        profiles: [
+          {
+            id: 'default',
+            name: 'Production',
+            apiEndpoint: data.apiEndpoint || '',
+            token: data.token || '',
+            siteUrl: data.siteUrl || '',
+          },
+        ],
+        activeProfileId: 'default',
+      }
+      await this.saveSettings()
+    }
   }
 
   async saveSettings() {
     await this.saveData(this.settings)
-    this.api = new MixSpaceAPI(this.settings)
+  }
+
+  /**
+   * Called when the active profile changes
+   * Updates the API client and clears caches
+   */
+  onProfileChange() {
+    const profile = getActiveProfile(this.settings)
+    this.api.updateProfile(profile)
+    this.refreshMetadataCache()
   }
 
   // ===== Title Bar Button =====
@@ -128,7 +164,9 @@ export default class MixSpacePlugin extends Plugin {
     const headerEl = view.containerEl.querySelector('.view-header-title-container')
     if (!headerEl) return
 
-    let buttonContainer = headerEl.parentElement?.querySelector('.mixspace-title-button') as HTMLElement | null
+    let buttonContainer = headerEl.parentElement?.querySelector(
+      '.mixspace-title-button',
+    ) as HTMLElement | null
 
     if (!buttonContainer) {
       buttonContainer = createEl('div', { cls: 'mixspace-title-button' })
@@ -223,7 +261,8 @@ export default class MixSpacePlugin extends Plugin {
       return
     }
 
-    if (!this.settings.apiEndpoint || !this.settings.token) {
+    const profile = getActiveProfile(this.settings)
+    if (!profile.apiEndpoint || !profile.token) {
       new Notice('Please configure API endpoint and token in settings')
       return
     }
@@ -238,7 +277,7 @@ export default class MixSpacePlugin extends Plugin {
       // Convert backlinks to URLs
       const { text: convertedBody, errors: backlinkErrors } = await convertBacklinks(
         body,
-        this.settings.siteUrl,
+        profile.siteUrl,
         this.app,
         this.api,
       )
@@ -247,7 +286,10 @@ export default class MixSpacePlugin extends Plugin {
       if (backlinkErrors.length > 0) {
         const errorMsg = formatBacklinkErrors(backlinkErrors)
         console.error(errorMsg)
-        new Notice(`Backlink conversion failed:\n${backlinkErrors.map((e) => `[[${e.link}]]: ${e.reason}`).join('\n')}`, 10000)
+        new Notice(
+          `Backlink conversion failed:\n${backlinkErrors.map((e) => `[[${e.link}]]: ${e.reason}`).join('\n')}`,
+          10000,
+        )
         return
       }
 
@@ -300,6 +342,8 @@ export default class MixSpacePlugin extends Plugin {
       return
     }
 
+    const profile = getActiveProfile(this.settings)
+
     try {
       const content = await this.app.vault.read(file)
       const { frontmatter, body } = parseFrontmatter(content)
@@ -308,12 +352,11 @@ export default class MixSpacePlugin extends Plugin {
       const isUpdate = !!existingId
 
       // Convert backlinks to URLs
-      const { text: convertedBody, errors: backlinkErrors, debug: backlinkDebug } = await convertBacklinks(
-        body,
-        this.settings.siteUrl,
-        this.app,
-        this.api,
-      )
+      const {
+        text: convertedBody,
+        errors: backlinkErrors,
+        debug: backlinkDebug,
+      } = await convertBacklinks(body, profile.siteUrl, this.app, this.api)
 
       const payload =
         contentType === 'note'
@@ -321,8 +364,8 @@ export default class MixSpacePlugin extends Plugin {
           : await buildPostPayload(frontmatter, convertedBody, file.basename, this.api)
 
       const endpoint = isUpdate
-        ? `${this.settings.apiEndpoint}/${contentType}s/${existingId}`
-        : `${this.settings.apiEndpoint}/${contentType}s`
+        ? `${profile.apiEndpoint}/${contentType}s/${existingId}`
+        : `${profile.apiEndpoint}/${contentType}s`
 
       new DrySyncModal(this.app, {
         file: file.path,

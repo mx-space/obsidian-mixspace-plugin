@@ -1,11 +1,6 @@
 import { App, Modal, Notice } from 'obsidian'
 import type { BacklinkDebugInfo, BacklinkError } from '../utils/backlinks'
-import type {
-  ContentType,
-  NoteFrontmatter,
-  NotePayload,
-  PostPayload,
-} from '../types'
+import type { ContentType, NoteFrontmatter, NotePayload, PostPayload } from '../types'
 
 export interface DrySyncData {
   file: string

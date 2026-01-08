@@ -1,13 +1,34 @@
-export interface MixSpaceSettings {
+// Profile for different environments (production, development, etc.)
+export interface MixSpaceProfile {
+  id: string
+  name: string
   apiEndpoint: string
   token: string
-  siteUrl: string // e.g., https://innei.in
+  siteUrl: string
 }
 
-export const DEFAULT_SETTINGS: MixSpaceSettings = {
+export interface MixSpaceSettings {
+  profiles: MixSpaceProfile[]
+  activeProfileId: string
+}
+
+export const DEFAULT_PROFILE: MixSpaceProfile = {
+  id: 'default',
+  name: 'Production',
   apiEndpoint: '',
   token: '',
   siteUrl: '',
+}
+
+export const DEFAULT_SETTINGS: MixSpaceSettings = {
+  profiles: [DEFAULT_PROFILE],
+  activeProfileId: 'default',
+}
+
+// Helper to get active profile from settings
+export function getActiveProfile(settings: MixSpaceSettings): MixSpaceProfile {
+  const profile = settings.profiles.find((p) => p.id === settings.activeProfileId)
+  return profile || settings.profiles[0] || DEFAULT_PROFILE
 }
 
 // Obsidian frontmatter (parsed from markdown)
