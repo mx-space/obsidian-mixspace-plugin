@@ -1,0 +1,10 @@
+{
+  "id": "obsidian-mixspace",
+  "name": "Mix Space Publisher",
+  "version": "0.1.0",
+  "minAppVersion": "1.0.0",
+  "description": "Publish notes to Mix Space",
+  "author": "Innei",
+  "authorUrl": "https://innei.in",
+  "isDesktopOnly": false
+}
