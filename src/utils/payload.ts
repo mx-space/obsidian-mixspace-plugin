@@ -20,6 +20,32 @@ export function detectContentType(frontmatter: NoteFrontmatter): ContentType {
 }
 
 /**
+ * Strip the first H1 heading from body if it matches the title
+ * This handles cases where the title appears both as filename and as H1 in content
+ */
+export function stripFirstH1IfMatchesTitle(body: string, title: string): string {
+  const lines = body.split('\n')
+  if (lines.length === 0) return body
+
+  const firstLine = lines[0].trim()
+  // Check if first line is an H1 heading (starts with single #)
+  const h1Match = firstLine.match(/^#\s+(.+)$/)
+  if (h1Match) {
+    const h1Title = h1Match[1].trim()
+    // If H1 title matches the file title, remove it
+    if (h1Title === title) {
+      // Remove the first line and any immediately following blank lines
+      let startIndex = 1
+      while (startIndex < lines.length && lines[startIndex].trim() === '') {
+        startIndex++
+      }
+      return lines.slice(startIndex).join('\n')
+    }
+  }
+  return body
+}
+
+/**
  * Build Note payload for Mix Space API
  */
 export function buildNotePayload(
@@ -27,9 +53,14 @@ export function buildNotePayload(
   body: string,
   fileName: string,
 ): NotePayload {
+  // Use fileName as title (ignoring frontmatter.title)
+  const title = fileName
+  // Strip first H1 if it matches the title
+  const processedBody = stripFirstH1IfMatchesTitle(body, title)
+
   const payload: NotePayload = {
-    title: frontmatter.title || fileName,
-    text: body,
+    title,
+    text: processedBody,
   }
 
   // Optional fields - only include if present
@@ -76,10 +107,15 @@ export async function buildPostPayload(
     throw new Error('Post requires categoryId or categories field')
   }
 
+  // Use fileName as title (ignoring frontmatter.title)
+  const title = fileName
+  // Strip first H1 if it matches the title
+  const processedBody = stripFirstH1IfMatchesTitle(body, title)
+
   const payload: PostPayload = {
-    title: frontmatter.title || fileName,
-    text: body,
-    slug: frontmatter.slug || generateSlug(frontmatter.title || fileName),
+    title,
+    text: processedBody,
+    slug: frontmatter.slug || generateSlug(title),
     categoryId,
   }
 

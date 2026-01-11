@@ -1,6 +1,7 @@
-import { MarkdownView, Notice, Plugin, TFile, setIcon } from 'obsidian'
+import { MarkdownView, Menu, Notice, Plugin, TFile, setIcon } from 'obsidian'
 import { MixSpaceAPI } from './api'
 import { CACHE_TTL, MOOD_OPTIONS, WEATHER_OPTIONS } from './constants'
+import { ConfirmDeleteModal } from './modals/ConfirmDeleteModal'
 import { DrySyncModal } from './modals/DrySyncModal'
 import { MixSpaceSettingTab } from './settings'
 import { FrontmatterSuggest } from './suggest'
@@ -83,6 +84,22 @@ export default class MixSpacePlugin extends Plugin {
       name: 'Dry Sync - Preview publish payload (Debug)',
       editorCallback: async () => {
         await this.drySync()
+      },
+    })
+
+    this.addCommand({
+      id: 'delete-from-mixspace',
+      name: 'Delete current file from Mix Space',
+      editorCallback: async () => {
+        await this.deleteFromMixSpace()
+      },
+    })
+
+    this.addCommand({
+      id: 'unlink-from-mixspace',
+      name: 'Unlink current file from Mix Space (keep remote)',
+      editorCallback: async () => {
+        await this.unlinkFromMixSpace()
       },
     })
   }
@@ -183,6 +200,13 @@ export default class MixSpacePlugin extends Plugin {
         this.updateTitleBarButton()
       })
 
+      // Right-click context menu for management options
+      button.addEventListener('contextmenu', async (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        await this.showTitleBarMenu(e)
+      })
+
       headerEl.parentElement?.insertBefore(buttonContainer, headerEl.nextSibling)
       this.titleBarButton = buttonContainer
     }
@@ -212,6 +236,73 @@ export default class MixSpacePlugin extends Plugin {
       this.titleBarButton.remove()
       this.titleBarButton = null
     }
+  }
+
+  private async showTitleBarMenu(event: MouseEvent) {
+    const file = this.app.workspace.getActiveFile()
+    if (!file) return
+
+    const content = await this.app.vault.read(file)
+    const { frontmatter } = parseFrontmatter(content)
+    const isPublished = !!frontmatter.oid
+    const contentType = detectContentType(frontmatter)
+
+    const menu = new Menu()
+
+    if (isPublished) {
+      menu.addItem((item) =>
+        item
+          .setTitle(`Update ${contentType}`)
+          .setIcon('refresh-cw')
+          .onClick(async () => {
+            await this.publishCurrent()
+            this.updateTitleBarButton()
+          }),
+      )
+
+      menu.addSeparator()
+
+      menu.addItem((item) =>
+        item
+          .setTitle('Delete from Mix Space')
+          .setIcon('trash-2')
+          .onClick(async () => {
+            await this.deleteFromMixSpace()
+          }),
+      )
+
+      menu.addItem((item) =>
+        item
+          .setTitle('Unlink (keep remote)')
+          .setIcon('unlink')
+          .onClick(async () => {
+            await this.unlinkFromMixSpace()
+          }),
+      )
+    } else {
+      menu.addItem((item) =>
+        item
+          .setTitle(`Publish ${contentType}`)
+          .setIcon('upload-cloud')
+          .onClick(async () => {
+            await this.publishCurrent()
+            this.updateTitleBarButton()
+          }),
+      )
+    }
+
+    menu.addSeparator()
+
+    menu.addItem((item) =>
+      item
+        .setTitle('Dry Sync (Debug)')
+        .setIcon('bug')
+        .onClick(async () => {
+          await this.drySync()
+        }),
+    )
+
+    menu.showAtMouseEvent(event)
   }
 
   // ===== Metadata Cache =====
@@ -390,6 +481,99 @@ export default class MixSpacePlugin extends Plugin {
   async updateFrontmatter(file: TFile, updates: Partial<NoteFrontmatter>) {
     await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
       Object.assign(frontmatter, updates)
+    })
+  }
+
+  // ===== Delete from Mix Space =====
+
+  async deleteFromMixSpace() {
+    const file = this.app.workspace.getActiveFile()
+    if (!file) {
+      new Notice('No active file')
+      return
+    }
+
+    const profile = getActiveProfile(this.settings)
+    if (!profile.apiEndpoint || !profile.token) {
+      new Notice('Please configure API endpoint and token in settings')
+      return
+    }
+
+    const content = await this.app.vault.read(file)
+    const { frontmatter } = parseFrontmatter(content)
+
+    if (!frontmatter.oid) {
+      new Notice('This file is not linked to Mix Space')
+      return
+    }
+
+    const contentType = detectContentType(frontmatter)
+
+    new ConfirmDeleteModal(this.app, {
+      title: file.basename,
+      contentType,
+      onConfirm: async () => {
+        const id = frontmatter.oid
+        if (!id) {
+          new Notice('This file is not linked to Mix Space')
+          return
+        }
+        try {
+          if (contentType === 'note') {
+            await this.api.deleteNote(id)
+          } else {
+            await this.api.deletePost(id)
+          }
+
+          // Clear Mix Space related frontmatter fields
+          await this.clearMixSpaceFrontmatter(file)
+
+          new Notice(`${contentType === 'note' ? 'Note' : 'Post'} deleted from Mix Space`)
+          this.updateTitleBarButton()
+        } catch (error) {
+          console.error('Failed to delete:', error)
+          new Notice(
+            `Failed to delete: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          )
+          throw error
+        }
+      },
+    }).open()
+  }
+
+  // ===== Unlink from Mix Space =====
+
+  async unlinkFromMixSpace() {
+    const file = this.app.workspace.getActiveFile()
+    if (!file) {
+      new Notice('No active file')
+      return
+    }
+
+    const content = await this.app.vault.read(file)
+    const { frontmatter } = parseFrontmatter(content)
+
+    if (!frontmatter.oid) {
+      new Notice('This file is not linked to Mix Space')
+      return
+    }
+
+    await this.clearMixSpaceFrontmatter(file)
+    new Notice('File unlinked from Mix Space (remote content preserved)')
+    this.updateTitleBarButton()
+  }
+
+  // ===== Clear Mix Space Frontmatter =====
+
+  private async clearMixSpaceFrontmatter(file: TFile) {
+    await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+      // Remove Mix Space specific fields
+      delete frontmatter.oid
+      delete frontmatter.id
+      delete frontmatter.slug
+      delete frontmatter.categoryId
+      delete frontmatter.updated
+      // Keep 'type' field as it may be useful for future publishes
     })
   }
 }

@@ -186,7 +186,14 @@ function buildPostUrlWithDebug(
   const categoryValue = frontmatter.categories || frontmatter.categorySlug
   const categoryId = frontmatter.categoryId
 
-  debug.categoryValue = categoryValue || categoryId || null
+  // Ensure we only assign string values (YAML may parse empty values as {})
+  const resolvedCategoryValue =
+    typeof categoryValue === 'string'
+      ? categoryValue
+      : typeof categoryId === 'string'
+        ? categoryId
+        : null
+  debug.categoryValue = resolvedCategoryValue
 
   let categorySlug: string | undefined
 

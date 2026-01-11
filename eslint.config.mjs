@@ -5,7 +5,7 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    ignores: ['node_modules/**', 'main.js', '*.config.*'],
+    ignores: ['node_modules/**', 'main.js', '*.config.*', 'src/**/*.test.ts', 'src/__mocks__/**'],
   },
   {
     files: ['src/**/*.ts'],

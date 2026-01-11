@@ -115,16 +115,33 @@ export class MixSpaceSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Test Connection')
-      .setDesc('Test the API connection for current profile')
+      .setDesc('Test the API connection and verify authentication')
       .addButton((button) =>
         button.setButtonText('Test').onClick(async () => {
           button.setButtonText('Testing...')
-          const success = await this.plugin.api.testConnection()
-          if (success) {
-            button.setButtonText('✓ Connected')
+          const result = await this.plugin.api.testConnection()
+          if (result.ok) {
+            button.setButtonText('✓ Authenticated')
+            new Notice('✓ Connection successful! You are authenticated.')
+            setTimeout(() => button.setButtonText('Test'), 2000)
+          } else if (result.isGuest) {
+            button.setButtonText('✗ Invalid Token')
+            new Notice(
+              `✗ Authentication failed: Invalid or expired token.\n\nDebug info: ${result.debug || 'No additional details'}`,
+              10000,
+            )
+            console.error('[MixSpace] Auth failed:', result.debug)
             setTimeout(() => button.setButtonText('Test'), 2000)
           } else {
-            button.setButtonText('✗ Failed')
+            button.setButtonText('✗ Connection Failed')
+            new Notice(
+              `✗ Connection failed!\n\nEndpoint: ${activeProfile.apiEndpoint}\n\nError: ${result.debug || 'Unknown error'}\n\nPlease check:\n1. API endpoint is correct\n2. Network connection is available\n3. Server is running`,
+              15000,
+            )
+            console.error('[MixSpace] Connection failed:', {
+              endpoint: activeProfile.apiEndpoint,
+              error: result.debug,
+            })
             setTimeout(() => button.setButtonText('Test'), 2000)
           }
         }),

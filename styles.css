@@ -184,3 +184,41 @@
   margin: 2px 0;
   font-family: var(--font-monospace);
 }
+
+/* Confirm Delete Modal */
+.modal:has(.mixspace-confirm-delete-modal) {
+  width: 420px;
+}
+
+.mixspace-delete-title {
+  color: var(--text-error);
+}
+
+.mixspace-confirm-message {
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.mixspace-confirm-note {
+  margin-bottom: 20px;
+  padding: 12px;
+  background: var(--background-secondary);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.mixspace-confirm-delete-modal .setting-item {
+  border-top: none;
+  padding-top: 0;
+}
+
+.mixspace-confirm-delete-modal .setting-item-info {
+  display: none;
+}
+
+.mixspace-confirm-delete-modal .setting-item-control {
+  width: 100%;
+  justify-content: flex-end;
+  gap: 8px;
+}
