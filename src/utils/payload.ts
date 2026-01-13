@@ -48,11 +48,12 @@ export function stripFirstH1IfMatchesTitle(body: string, title: string): string 
 /**
  * Build Note payload for Mix Space API
  */
-export function buildNotePayload(
+export async function buildNotePayload(
   frontmatter: NoteFrontmatter,
   body: string,
   fileName: string,
-): NotePayload {
+  api: MixSpaceAPI,
+): Promise<NotePayload> {
   // Use fileName as title (ignoring frontmatter.title)
   const title = fileName
   // Strip first H1 if it matches the title
@@ -72,7 +73,23 @@ export function buildNotePayload(
   if (frontmatter.bookmark !== undefined) payload.bookmark = frontmatter.bookmark
   if (frontmatter.location) payload.location = frontmatter.location
   if (frontmatter.coordinates) payload.coordinates = frontmatter.coordinates
-  if (frontmatter.topicId) payload.topicId = frontmatter.topicId
+
+  // Resolve topicId from topic name or use direct topicId
+  let topicId = frontmatter.topicId
+  if (!topicId && frontmatter.topic) {
+    const topic = await api.getTopicByNameOrSlug(frontmatter.topic)
+    if (topic) {
+      topicId = topic.id
+    } else {
+      // Provide helpful error with available topics
+      const allTopics = await api.getTopics()
+      const available = allTopics.map((t) => t.name).join(', ')
+      throw new Error(
+        `Topic not found: "${frontmatter.topic}". Available: [${available || 'none'}]`,
+      )
+    }
+  }
+  if (topicId) payload.topicId = topicId
 
   return payload
 }

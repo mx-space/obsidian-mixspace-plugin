@@ -7,9 +7,53 @@ export interface MixSpaceProfile {
   siteUrl: string
 }
 
+// AI Provider types
+export type AIProvider = 'openai' | 'anthropic'
+
+export interface AISettings {
+  enabled: boolean
+  provider: AIProvider
+  apiKey: string
+  baseUrl: string
+  model: string
+}
+
+export const DEFAULT_AI_SETTINGS: AISettings = {
+  enabled: false,
+  provider: 'openai',
+  apiKey: '',
+  baseUrl: '',
+  model: 'gpt-4o-mini',
+}
+
+// Default base URLs for each provider
+export const DEFAULT_BASE_URLS: Record<AIProvider, string> = {
+  openai: 'https://api.openai.com/v1',
+  anthropic: 'https://api.anthropic.com',
+}
+
+// Available models for each provider (Anthropic hardcoded, OpenAI can be fetched dynamically)
+export const AI_MODELS: Record<AIProvider, { id: string; name: string }[]> = {
+  openai: [
+    { id: 'gpt-4o', name: 'GPT-4o (Recommended)' },
+    { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
+    { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' },
+    { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo' },
+  ],
+  anthropic: [
+    { id: 'claude-sonnet-4-5-20250929', name: 'Claude Sonnet 4.5 (Recommended)' },
+    { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5 (Fast)' },
+    { id: 'claude-opus-4-5-20251101', name: 'Claude Opus 4.5' },
+    { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4' },
+    { id: 'claude-3-7-sonnet-20250219', name: 'Claude Sonnet 3.7' },
+    { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku (Legacy)' },
+  ],
+}
+
 export interface MixSpaceSettings {
   profiles: MixSpaceProfile[]
   activeProfileId: string
+  ai: AISettings
 }
 
 export const DEFAULT_PROFILE: MixSpaceProfile = {
@@ -23,6 +67,7 @@ export const DEFAULT_PROFILE: MixSpaceProfile = {
 export const DEFAULT_SETTINGS: MixSpaceSettings = {
   profiles: [DEFAULT_PROFILE],
   activeProfileId: 'default',
+  ai: DEFAULT_AI_SETTINGS,
 }
 
 // Helper to get active profile from settings
@@ -42,7 +87,8 @@ export interface NoteFrontmatter {
   mood?: string
   weather?: string
   // Note specific
-  topicId?: string
+  topic?: string // Topic name (resolved to topicId when publishing)
+  topicId?: string // Direct topic ID (for backwards compatibility)
   location?: string
   coordinates?: { latitude: number; longitude: number }
   password?: string

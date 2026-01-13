@@ -114,11 +114,11 @@ describe('MixSpaceAPI', () => {
     it('should delete note', async () => {
       vi.mocked(requestUrl).mockResolvedValue(mockResponse(200, {}))
 
-      await api.deleteNote(123)
+      await api.deleteNote('note123')
 
       expect(requestUrl).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: 'https://api.example.com/notes/123',
+          url: 'https://api.example.com/notes/note123',
           method: 'DELETE',
         }),
       )
@@ -277,6 +277,34 @@ describe('MixSpaceAPI', () => {
       const result = await api.getCategoryByNameOrSlug('Technology')
 
       expect(result).toEqual({ id: 'cat1', name: 'Technology', slug: 'tech' })
+    })
+
+    it('should get topic by name or slug - by slug', async () => {
+      const topics = [{ id: 'topic1', name: 'My Topic', slug: 'my-topic' }]
+
+      vi.mocked(requestUrl).mockResolvedValue(mockResponse(200, { data: topics }))
+
+      const result = await api.getTopicByNameOrSlug('my-topic')
+
+      expect(result).toEqual({ id: 'topic1', name: 'My Topic', slug: 'my-topic' })
+    })
+
+    it('should get topic by name or slug - by name', async () => {
+      const topics = [{ id: 'topic1', name: 'My Topic', slug: 'my-topic' }]
+
+      vi.mocked(requestUrl).mockResolvedValue(mockResponse(200, { data: topics }))
+
+      const result = await api.getTopicByNameOrSlug('My Topic')
+
+      expect(result).toEqual({ id: 'topic1', name: 'My Topic', slug: 'my-topic' })
+    })
+
+    it('should return null when topic by name or slug not found', async () => {
+      vi.mocked(requestUrl).mockResolvedValue(mockResponse(200, { data: [] }))
+
+      const result = await api.getTopicByNameOrSlug('nonexistent')
+
+      expect(result).toBeNull()
     })
   })
 

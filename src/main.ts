@@ -1,4 +1,5 @@
 import { MarkdownView, Menu, Notice, Plugin, TFile, setIcon } from 'obsidian'
+import { AIService } from './ai'
 import { MixSpaceAPI } from './api'
 import { CACHE_TTL, MOOD_OPTIONS, WEATHER_OPTIONS } from './constants'
 import { ConfirmDeleteModal } from './modals/ConfirmDeleteModal'
@@ -6,6 +7,7 @@ import { DrySyncModal } from './modals/DrySyncModal'
 import { MixSpaceSettingTab } from './settings'
 import { FrontmatterSuggest } from './suggest'
 import {
+  DEFAULT_AI_SETTINGS,
   DEFAULT_SETTINGS,
   getActiveProfile,
   type Category,
@@ -20,6 +22,7 @@ import { buildNotePayload, buildPostPayload, detectContentType } from './utils/p
 export default class MixSpacePlugin extends Plugin {
   settings: MixSpaceSettings = DEFAULT_SETTINGS
   api!: MixSpaceAPI
+  aiService!: AIService
 
   // Cached metadata
   private categoriesCache: { data: Category[]; timestamp: number } | null = null
@@ -33,6 +36,9 @@ export default class MixSpacePlugin extends Plugin {
 
     const profile = getActiveProfile(this.settings)
     this.api = new MixSpaceAPI(profile)
+
+    // Initialize AI service
+    this.aiService = new AIService(this.settings.ai || DEFAULT_AI_SETTINGS)
 
     // Register frontmatter suggest
     this.registerEditorSuggest(new FrontmatterSuggest(this))
@@ -102,6 +108,32 @@ export default class MixSpacePlugin extends Plugin {
         await this.unlinkFromMixSpace()
       },
     })
+
+    // AI Generation Commands
+    this.addCommand({
+      id: 'ai-generate-title',
+      name: 'Generate Title with AI',
+      editorCallback: async (_editor, view) => {
+        await this.generateTitleWithAI(view.file)
+      },
+    })
+
+    this.addCommand({
+      id: 'ai-generate-slug',
+      name: 'Generate Slug with AI',
+      editorCallback: async (_editor, view) => {
+        await this.generateSlugWithAI(view.file)
+      },
+    })
+
+    this.addCommand({
+      id: 'ai-generate-both',
+      name: 'Generate Title and Slug with AI',
+      editorCallback: async (_editor, view) => {
+        await this.generateTitleWithAI(view.file)
+        await this.generateSlugWithAI(view.file)
+      },
+    })
   }
 
   private registerTitleBarEvents() {
@@ -144,7 +176,14 @@ export default class MixSpacePlugin extends Plugin {
           },
         ],
         activeProfileId: 'default',
+        ai: DEFAULT_AI_SETTINGS,
       }
+      await this.saveSettings()
+    }
+
+    // Ensure AI settings exist (migration from pre-AI versions)
+    if (!this.settings.ai) {
+      this.settings.ai = DEFAULT_AI_SETTINGS
       await this.saveSettings()
     }
   }
@@ -302,6 +341,29 @@ export default class MixSpacePlugin extends Plugin {
         }),
     )
 
+    // AI generation options
+    if (this.aiService.isConfigured()) {
+      menu.addSeparator()
+
+      menu.addItem((item) =>
+        item
+          .setTitle('Generate Title with AI')
+          .setIcon('sparkles')
+          .onClick(async () => {
+            await this.generateTitleWithAI(file)
+          }),
+      )
+
+      menu.addItem((item) =>
+        item
+          .setTitle('Generate Slug with AI')
+          .setIcon('sparkles')
+          .onClick(async () => {
+            await this.generateSlugWithAI(file)
+          }),
+      )
+    }
+
     menu.showAtMouseEvent(event)
   }
 
@@ -385,7 +447,7 @@ export default class MixSpacePlugin extends Plugin {
       }
 
       if (contentType === 'note') {
-        const payload = buildNotePayload(frontmatter, convertedBody, file.basename)
+        const payload = await buildNotePayload(frontmatter, convertedBody, file.basename, this.api)
 
         new Notice(isUpdate ? 'Updating note...' : 'Creating note...')
         const response = isUpdate
@@ -451,7 +513,7 @@ export default class MixSpacePlugin extends Plugin {
 
       const payload =
         contentType === 'note'
-          ? buildNotePayload(frontmatter, convertedBody, file.basename)
+          ? await buildNotePayload(frontmatter, convertedBody, file.basename, this.api)
           : await buildPostPayload(frontmatter, convertedBody, file.basename, this.api)
 
       const endpoint = isUpdate
@@ -575,5 +637,91 @@ export default class MixSpacePlugin extends Plugin {
       delete frontmatter.updated
       // Keep 'type' field as it may be useful for future publishes
     })
+  }
+
+  // ===== AI Service =====
+
+  updateAIService() {
+    if (this.settings.ai) {
+      this.aiService.updateSettings(this.settings.ai)
+    }
+  }
+
+  async generateTitleWithAI(file: TFile | null) {
+    if (!file) {
+      new Notice('No active file')
+      return
+    }
+
+    if (!this.aiService.isConfigured()) {
+      new Notice('AI not configured. Please check settings.')
+      return
+    }
+
+    try {
+      new Notice('Generating title...')
+
+      const content = await this.app.vault.read(file)
+      const { frontmatter, body } = parseFrontmatter(content)
+      const contentType = detectContentType(frontmatter)
+
+      const result = await this.aiService.generateTitle({
+        content: body,
+        fileName: file.basename,
+        existingTitle: frontmatter.title as string | undefined,
+        contentType,
+        frontmatter,
+      })
+
+      // Update frontmatter with generated title
+      await this.updateFrontmatter(file, { title: result.value })
+
+      new Notice(`Title generated: ${result.value}`)
+      if (result.tokensUsed) {
+        console.log(`[MixSpace AI] Tokens used: ${result.tokensUsed}`)
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error'
+      new Notice(`Failed to generate title: ${msg}`)
+      console.error('[MixSpace AI]', error)
+    }
+  }
+
+  async generateSlugWithAI(file: TFile | null) {
+    if (!file) {
+      new Notice('No active file')
+      return
+    }
+
+    if (!this.aiService.isConfigured()) {
+      new Notice('AI not configured. Please check settings.')
+      return
+    }
+
+    try {
+      new Notice('Generating slug...')
+
+      const content = await this.app.vault.read(file)
+      const { frontmatter, body } = parseFrontmatter(content)
+      const contentType = detectContentType(frontmatter)
+
+      const result = await this.aiService.generateSlug({
+        content: body,
+        fileName: file.basename,
+        existingTitle: frontmatter.title as string | undefined,
+        existingSlug: frontmatter.slug as string | undefined,
+        contentType,
+        frontmatter,
+      })
+
+      // Update frontmatter with generated slug
+      await this.updateFrontmatter(file, { slug: result.value })
+
+      new Notice(`Slug generated: ${result.value}`)
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error'
+      new Notice(`Failed to generate slug: ${msg}`)
+      console.error('[MixSpace AI]', error)
+    }
   }
 }

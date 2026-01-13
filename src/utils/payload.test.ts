@@ -149,39 +149,51 @@ describe('generateSlug', () => {
 })
 
 describe('buildNotePayload', () => {
-  it('should build basic note payload with fileName as title', () => {
+  const createMockApi = (topics: Array<{ id: string; name: string; slug: string }> = []) => {
+    return {
+      getTopicByNameOrSlug: vi.fn().mockImplementation((value: string) => {
+        return Promise.resolve(topics.find((t) => t.slug === value || t.name === value) || null)
+      }),
+      getTopics: vi.fn().mockResolvedValue(topics),
+    } as unknown as MixSpaceAPI
+  }
+
+  it('should build basic note payload with fileName as title', async () => {
     const frontmatter: NoteFrontmatter = {}
     const body = 'Note content'
     const fileName = 'My Note'
+    const api = createMockApi()
 
-    const payload = buildNotePayload(frontmatter, body, fileName)
+    const payload = await buildNotePayload(frontmatter, body, fileName, api)
 
     expect(payload.title).toBe('My Note')
     expect(payload.text).toBe('Note content')
   })
 
-  it('should ignore frontmatter.title and use fileName', () => {
+  it('should ignore frontmatter.title and use fileName', async () => {
     const frontmatter: NoteFrontmatter = { title: 'Frontmatter Title' }
     const body = 'Note content'
     const fileName = 'File Name'
+    const api = createMockApi()
 
-    const payload = buildNotePayload(frontmatter, body, fileName)
+    const payload = await buildNotePayload(frontmatter, body, fileName, api)
 
     expect(payload.title).toBe('File Name')
   })
 
-  it('should strip H1 if it matches fileName', () => {
+  it('should strip H1 if it matches fileName', async () => {
     const frontmatter: NoteFrontmatter = {}
     const body = '# My Note\n\nActual content'
     const fileName = 'My Note'
+    const api = createMockApi()
 
-    const payload = buildNotePayload(frontmatter, body, fileName)
+    const payload = await buildNotePayload(frontmatter, body, fileName, api)
 
     expect(payload.title).toBe('My Note')
     expect(payload.text).toBe('Actual content')
   })
 
-  it('should include optional fields when present', () => {
+  it('should include optional fields when present', async () => {
     const frontmatter: NoteFrontmatter = {
       mood: 'happy',
       weather: 'sunny',
@@ -195,8 +207,9 @@ describe('buildNotePayload', () => {
     }
     const body = 'Content'
     const fileName = 'Note'
+    const api = createMockApi()
 
-    const payload = buildNotePayload(frontmatter, body, fileName)
+    const payload = await buildNotePayload(frontmatter, body, fileName, api)
 
     expect(payload.mood).toBe('happy')
     expect(payload.weather).toBe('sunny')
@@ -209,16 +222,68 @@ describe('buildNotePayload', () => {
     expect(payload.topicId).toBe('topic123')
   })
 
-  it('should not include optional fields when not present', () => {
+  it('should not include optional fields when not present', async () => {
     const frontmatter: NoteFrontmatter = {}
     const body = 'Content'
     const fileName = 'Note'
+    const api = createMockApi()
 
-    const payload = buildNotePayload(frontmatter, body, fileName)
+    const payload = await buildNotePayload(frontmatter, body, fileName, api)
 
     expect(payload.mood).toBeUndefined()
     expect(payload.weather).toBeUndefined()
     expect(payload.allowComment).toBeUndefined()
+  })
+
+  it('should resolve topic name to topicId', async () => {
+    const topics = [
+      { id: 'topic1', name: 'My Topic', slug: 'my-topic' },
+      { id: 'topic2', name: 'Another Topic', slug: 'another-topic' },
+    ]
+    const frontmatter: NoteFrontmatter = { topic: 'My Topic' }
+    const body = 'Content'
+    const fileName = 'Note'
+    const api = createMockApi(topics)
+
+    const payload = await buildNotePayload(frontmatter, body, fileName, api)
+
+    expect(payload.topicId).toBe('topic1')
+  })
+
+  it('should resolve topic slug to topicId', async () => {
+    const topics = [{ id: 'topic1', name: 'My Topic', slug: 'my-topic' }]
+    const frontmatter: NoteFrontmatter = { topic: 'my-topic' }
+    const body = 'Content'
+    const fileName = 'Note'
+    const api = createMockApi(topics)
+
+    const payload = await buildNotePayload(frontmatter, body, fileName, api)
+
+    expect(payload.topicId).toBe('topic1')
+  })
+
+  it('should prefer direct topicId over topic name', async () => {
+    const topics = [{ id: 'topic1', name: 'My Topic', slug: 'my-topic' }]
+    const frontmatter: NoteFrontmatter = { topicId: 'direct-id', topic: 'My Topic' }
+    const body = 'Content'
+    const fileName = 'Note'
+    const api = createMockApi(topics)
+
+    const payload = await buildNotePayload(frontmatter, body, fileName, api)
+
+    expect(payload.topicId).toBe('direct-id')
+  })
+
+  it('should throw error when topic name not found', async () => {
+    const topics = [{ id: 'topic1', name: 'Existing Topic', slug: 'existing-topic' }]
+    const frontmatter: NoteFrontmatter = { topic: 'Non-existent Topic' }
+    const body = 'Content'
+    const fileName = 'Note'
+    const api = createMockApi(topics)
+
+    await expect(buildNotePayload(frontmatter, body, fileName, api)).rejects.toThrow(
+      'Topic not found: "Non-existent Topic". Available: [Existing Topic]',
+    )
   })
 })
 

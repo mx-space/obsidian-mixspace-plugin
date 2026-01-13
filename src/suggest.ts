@@ -14,7 +14,7 @@ interface SuggestionItem {
 }
 
 // Fields that support autocompletion
-const SUGGEST_FIELDS = ['categories', 'mood', 'weather', 'topicId'] as const
+const SUGGEST_FIELDS = ['categories', 'mood', 'weather', 'topic'] as const
 type SuggestField = (typeof SUGGEST_FIELDS)[number]
 
 export class FrontmatterSuggest extends EditorSuggest<SuggestionItem> {
@@ -50,11 +50,22 @@ export class FrontmatterSuggest extends EditorSuggest<SuggestionItem> {
       const match = line.match(pattern)
 
       if (match) {
-        const valueStart = line.indexOf(':') + 1
+        const colonPos = line.indexOf(':')
         const query = match[1].trim()
 
+        // Find where the value starts (after colon and any whitespace)
+        let valueStart = colonPos + 1
+        while (valueStart < line.length && line[valueStart] === ' ') {
+          valueStart++
+        }
+
+        // Only trigger if cursor is after the colon
+        if (cursor.ch <= colonPos) {
+          continue
+        }
+
         return {
-          start: { line: cursor.line, ch: valueStart + 1 },
+          start: { line: cursor.line, ch: valueStart },
           end: cursor,
           query: `${field}:${query}`,
         }
@@ -77,9 +88,9 @@ export class FrontmatterSuggest extends EditorSuggest<SuggestionItem> {
         break
       }
 
-      case 'topicId': {
+      case 'topic': {
         const topics = await this.plugin.getTopics()
-        items = topics.map((t) => ({ label: t.name, value: t.id }))
+        items = topics.map((t) => ({ label: t.name, value: t.name }))
         break
       }
 

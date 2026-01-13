@@ -159,6 +159,20 @@ export class MixSpaceAPI {
     return byName || null
   }
 
+  /**
+   * Find topic by name or slug
+   * Tries slug match first, then name match
+   */
+  async getTopicByNameOrSlug(value: string): Promise<Topic | null> {
+    const topics = await this.getTopics()
+    // Try slug first
+    const bySlug = topics.find((t) => t.slug === value)
+    if (bySlug) return bySlug
+    // Try name
+    const byName = topics.find((t) => t.name === value)
+    return byName || null
+  }
+
   // ===== Connection Test =====
 
   async testConnection(): Promise<{ ok: boolean; isGuest?: boolean; debug?: string }> {

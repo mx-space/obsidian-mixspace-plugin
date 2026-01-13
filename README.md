@@ -10,6 +10,8 @@
 - **Frontmatter 自动补全** - 支持分类、专栏、心情、天气等字段的自动补全
 - **标题栏按钮** - 一键发布/更新当前文档
 - **多环境配置** - 支持多个 Profile，方便在生产环境和测试环境之间切换
+- **AI 生成** - 使用 AI 自动生成文章标题和 slug（支持 OpenAI、Anthropic、OpenRouter）
+- **导入/导出配置** - 支持配置的备份和恢复
 - **Dry Sync 调试** - 预览将要发送的 payload，方便调试
 
 ## 安装
@@ -54,6 +56,35 @@ pnpm run build
 | Bearer Token | API 认证 Token | |
 | Site URL | 网站地址（用于反向链接转换） | `https://example.com` |
 
+### AI 设置
+
+使用 AI 自动生成文章标题和 slug，支持多种 AI 提供商：
+
+| 设置 | 说明 | 示例 |
+|------|------|------|
+| Enable AI | 启用/禁用 AI 功能 | |
+| Provider | AI 提供商 | `OpenAI` / `Anthropic` |
+| API Key | API 密钥 | `sk-xxx` |
+| Base URL | 自定义 API 地址（可选） | `https://openrouter.ai/api/v1` |
+| Model | 使用的模型 | `gpt-4o-mini` / `claude-sonnet-4-5-20250929` |
+
+**支持的提供商：**
+
+- **OpenAI** - GPT-4o、GPT-4o Mini、GPT-4 Turbo 等
+- **Anthropic** - Claude Sonnet 4.5、Claude Haiku 4.5、Claude Opus 4.5 等
+- **OpenRouter** - 设置 Base URL 为 `https://openrouter.ai/api/v1`，支持数百种模型
+
+使用 OpenRouter 时，可以点击「Fetch Models」按钮自动获取可用模型列表。
+
+### 导入/导出配置
+
+在设置页面底部可以导入或导出插件配置：
+
+- **导出配置** - 将所有设置（包括 Profile 和 AI 设置）导出为 JSON 文件
+- **导入配置** - 从 JSON 文件导入配置，会与现有配置合并
+
+**注意**：导出的配置包含 API Token 和 API Key，请妥善保管。
+
 ## 使用
 
 ### Frontmatter 格式
@@ -90,6 +121,19 @@ summary: 文章摘要
 1. **命令面板**：`Cmd/Ctrl + P` → "Publish current file to Mix Space"
 2. **标题栏按钮**：点击标题旁的上传图标
 3. **侧边栏**：点击 ribbon 图标
+
+### AI 生成
+
+启用 AI 功能后，可以使用以下命令自动生成标题和 slug：
+
+1. **命令面板**：
+   - `Generate Title with AI` - 根据文章内容生成标题
+   - `Generate Slug with AI` - 根据标题生成 URL slug
+   - `Generate Title and Slug with AI` - 同时生成标题和 slug
+
+2. **标题栏菜单**：右键点击标题旁的按钮，选择 AI 生成选项
+
+AI 会根据文章内容自动检测语言，生成对应语言的标题。Slug 会自动转换为 URL 友好的格式（支持中文转拼音）。
 
 ### 内容类型判断
 
@@ -150,6 +194,12 @@ pnpm run dev
 
 # 构建
 pnpm run build
+
+# 运行测试
+pnpm test
+
+# 代码检查
+pnpm run lint
 ```
 
 ## License

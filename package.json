@@ -4,7 +4,7 @@
   "description": "Publish notes from Obsidian to Mix Space",
   "type": "module",
   "main": "main.js",
-  "scripts": {
+    "scripts": {
     "dev": "tsdown --watch",
     "build": "tsc -noEmit -skipLibCheck && NODE_ENV=production tsdown",
     "test": "vitest",
@@ -24,6 +24,9 @@
   "author": "Innei",
   "license": "MIT",
   "devDependencies": {
+    "ai": "^4.0.0",
+    "@ai-sdk/openai": "^1.0.0",
+    "@ai-sdk/anthropic": "^1.0.0",
     "@eslint/js": "^9.39.2",
     "@types/node": "^20.10.0",
     "@vitest/coverage-v8": "^4.0.16",

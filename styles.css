@@ -222,3 +222,25 @@
   justify-content: flex-end;
   gap: 8px;
 }
+
+/* AI Settings Section */
+.mixspace-ai-settings .setting-item-description {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+/* AI Loading State */
+.mixspace-ai-loading {
+  animation: mixspace-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes mixspace-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
