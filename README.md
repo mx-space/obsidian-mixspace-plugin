@@ -16,13 +16,41 @@
 
 ## 安装
 
-### 手动安装
+### 方式一：从 GitHub Release 下载（推荐）
 
-1. 下载最新的 release
-2. 解压到 Obsidian 插件目录：`<vault>/.obsidian/plugins/obsidian-mixspace-plugin/`
-3. 在 Obsidian 设置中启用插件
+1. 前往 [Releases](https://github.com/mx-space/obsidian-mixspace-plugin/releases) 页面
+2. 下载最新版本的 `obsidian-mixspace-{version}.zip` 压缩包并解压
+3. 在你的 Obsidian Vault 目录下创建插件文件夹：
 
-### 从源码构建
+   ```bash
+   mkdir -p <your-vault>/.obsidian/plugins/obsidian-mixspace
+   ```
+
+4. 将下载的文件复制到该目录：
+
+   ```
+   <your-vault>/
+   └── .obsidian/
+       └── plugins/
+           └── obsidian-mixspace/
+               ├── main.js
+               ├── manifest.json
+               └── styles.css
+   ```
+
+5. 重启 Obsidian 或重新加载插件
+6. 进入 **设置** → **第三方插件** → 启用 **Mix Space Publisher**
+
+### 方式二：BRAT 安装
+
+如果你安装了 [BRAT](https://github.com/TfTHacker/obsidian42-brat) 插件：
+
+1. 打开 BRAT 设置
+2. 点击 **Add Beta Plugin**
+3. 输入仓库地址：`mx-space/obsidian-mixspace-plugin`
+4. 点击 **Add Plugin**
+
+### 方式三：从源码构建
 
 ```bash
 git clone https://github.com/mx-space/obsidian-mixspace-plugin.git
@@ -30,6 +58,8 @@ cd obsidian-mixspace-plugin
 pnpm install
 pnpm run build
 ```
+
+构建完成后，将 `main.js`、`manifest.json`、`styles.css` 复制到 Obsidian 插件目录。
 
 ## 配置
 
@@ -49,24 +79,24 @@ pnpm run build
 
 每个 Profile 包含以下设置：
 
-| 设置 | 说明 | 示例 |
-|------|------|------|
-| Profile Name | 配置名称 | `Production` / `Development` |
-| API Endpoint | Mix Space API 地址 | `https://api.example.com/v2` |
-| Bearer Token | API 认证 Token | |
-| Site URL | 网站地址（用于反向链接转换） | `https://example.com` |
+| 设置         | 说明                         | 示例                         |
+| ------------ | ---------------------------- | ---------------------------- |
+| Profile Name | 配置名称                     | `Production` / `Development` |
+| API Endpoint | Mix Space API 地址           | `https://api.example.com/v2` |
+| Bearer Token | API 认证 Token               |                              |
+| Site URL     | 网站地址（用于反向链接转换） | `https://example.com`        |
 
 ### AI 设置
 
 使用 AI 自动生成文章标题和 slug，支持多种 AI 提供商：
 
-| 设置 | 说明 | 示例 |
-|------|------|------|
-| Enable AI | 启用/禁用 AI 功能 | |
-| Provider | AI 提供商 | `OpenAI` / `Anthropic` |
-| API Key | API 密钥 | `sk-xxx` |
-| Base URL | 自定义 API 地址（可选） | `https://openrouter.ai/api/v1` |
-| Model | 使用的模型 | `gpt-4o-mini` / `claude-sonnet-4-5-20250929` |
+| 设置      | 说明                    | 示例                                         |
+| --------- | ----------------------- | -------------------------------------------- |
+| Enable AI | 启用/禁用 AI 功能       |                                              |
+| Provider  | AI 提供商               | `OpenAI` / `Anthropic`                       |
+| API Key   | API 密钥                | `sk-xxx`                                     |
+| Base URL  | 自定义 API 地址（可选） | `https://openrouter.ai/api/v1`               |
+| Model     | 使用的模型              | `gpt-4o-mini` / `claude-sonnet-4-5-20250929` |
 
 **支持的提供商：**
 
@@ -97,7 +127,7 @@ title: 我的随笔
 type: note
 mood: 开心
 weather: 晴
-topicId: xxx  # 专栏 ID（可选）
+topicId: xxx # 专栏 ID（可选）
 ---
 ```
 
@@ -108,7 +138,7 @@ topicId: xxx  # 专栏 ID（可选）
 title: 技术文章
 type: post
 slug: my-article
-categories: 技术  # 分类名称或 slug
+categories: 技术 # 分类名称或 slug
 tags:
   - JavaScript
   - TypeScript
@@ -150,9 +180,11 @@ AI 会根据文章内容自动检测语言，生成对应语言的标题。Slug 
 
 ```markdown
 # 转换前
+
 请参考 [[另一篇文章]] 和 [[我的笔记|这篇笔记]]
 
 # 转换后
+
 请参考 [另一篇文章](https://example.com/posts/tech/another-article) 和 [这篇笔记](https://example.com/notes/123)
 ```
 
@@ -174,12 +206,12 @@ AI 会根据文章内容自动检测语言，生成对应语言的标题。Slug 
 ```yaml
 ---
 title: 我的文章
-oid: 5eb2c62a613a5ab0642f1fa2  # Mix Space 文档 ID
-id: 123                         # Note 的 nid 或 Post 的 id
-slug: my-article                # Post 的 slug
-categoryId: xxx                 # Post 的分类 ID
-updated: 2024-01-01T12:00:00Z   # 更新时间
-type: post                      # 内容类型
+oid: 5eb2c62a613a5ab0642f1fa2 # Mix Space 文档 ID
+id: 123 # Note 的 nid 或 Post 的 id
+slug: my-article # Post 的 slug
+categoryId: xxx # Post 的分类 ID
+updated: 2024-01-01T12:00:00Z # 更新时间
+type: post # 内容类型
 ---
 ```
 
