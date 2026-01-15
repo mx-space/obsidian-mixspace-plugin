@@ -6,14 +6,14 @@ export default defineConfig({
     main: 'src/main.ts',
   },
   format: 'cjs',
-  target: 'es2018',
+  target: 'es2023',
   outDir: '.',
   outputOptions: {
     entryFileNames: '[name].js',
   },
   clean: false,
-  sourcemap: process.env.NODE_ENV === 'production' ? false : 'inline',
-  minify: process.env.NODE_ENV === 'production',
+  sourcemap: false,
+  minify: true,
   treeshake: true,
   external: [
     'obsidian',

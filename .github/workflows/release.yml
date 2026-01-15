@@ -61,9 +61,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            main.js
-            manifest.json
-            styles.css
             obsidian-mixspace-${{ steps.get_version.outputs.VERSION }}.zip
           generate_release_notes: true
           draft: false
