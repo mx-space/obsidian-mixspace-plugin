@@ -17,12 +17,13 @@ export class MixSpaceAPI {
   }
 
   private getHeaders(hasBody: boolean) {
+    const raw = (this.profile.token || '').trim()
+    const token = raw.toLowerCase().startsWith('bearer ') ? raw : `Bearer ${raw}`
+
     const headers: Record<string, string> = {
-      Authorization: this.profile.token,
+      Authorization: token,
     }
-    if (hasBody) {
-      headers['Content-Type'] = 'application/json'
-    }
+    if (hasBody) headers['Content-Type'] = 'application/json'
     return headers
   }
 
@@ -176,7 +177,7 @@ export class MixSpaceAPI {
   // ===== Connection Test =====
 
   async testConnection(): Promise<{ ok: boolean; isGuest?: boolean; debug?: string }> {
-    const testUrl = `${this.baseUrl}/master/check_logged`
+    const testUrl = `${this.baseUrl}/owner/check_logged`
 
     try {
       console.log('[MixSpace] Testing connection to:', testUrl)
