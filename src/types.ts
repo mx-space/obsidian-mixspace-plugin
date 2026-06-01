@@ -1,3 +1,8 @@
+// Mix Space API version. v2 = legacy (Authorization header, bare responses,
+// camelCase fields). v3 = Mix Space v13+ (x-api-key header, { data } envelope,
+// snake_case fields).
+export type ApiVersion = 'v2' | 'v3'
+
 // Profile for different environments (production, development, etc.)
 export interface MixSpaceProfile {
   id: string
@@ -5,6 +10,20 @@ export interface MixSpaceProfile {
   apiEndpoint: string
   token: string
   siteUrl: string
+  apiVersion?: ApiVersion // optional; when absent, resolveApiVersion infers from endpoint / defaults to v3
+}
+
+// Resolve the effective API version for a profile.
+// Explicit apiVersion wins; otherwise infer from the endpoint's trailing segment;
+// fall back to the field-tested v3 when nothing matches.
+export function resolveApiVersion(
+  profile: Pick<MixSpaceProfile, 'apiVersion' | 'apiEndpoint'>,
+): ApiVersion {
+  if (profile.apiVersion === 'v2' || profile.apiVersion === 'v3') return profile.apiVersion
+  const base = (profile.apiEndpoint || '').replace(/\/$/, '')
+  if (/\/v2$/.test(base)) return 'v2'
+  if (/\/v3$/.test(base)) return 'v3'
+  return 'v3' // default safely to the field-tested v3
 }
 
 // AI Provider types
@@ -62,6 +81,7 @@ export const DEFAULT_PROFILE: MixSpaceProfile = {
   apiEndpoint: '',
   token: '',
   siteUrl: '',
+  apiVersion: 'v3',
 }
 
 export const DEFAULT_SETTINGS: MixSpaceSettings = {

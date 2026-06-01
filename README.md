@@ -79,12 +79,12 @@ pnpm run build
 
 每个 Profile 包含以下设置：
 
-| 设置         | 说明                         | 示例                         |
-| ------------ | ---------------------------- | ---------------------------- |
-| Profile Name | 配置名称                     | `Production` / `Development` |
-| API Endpoint | Mix Space API 地址           | `https://your-domain.com/api/v3` |
-| API Token    | 认证 Token（后台 设定→账号与安全→API Token，作为 x-api-key 头发送）               |                              |
-| Site URL     | 网站地址（用于反向链接转换） | `https://example.com`        |
+| 设置         | 说明                                                                | 示例                             |
+| ------------ | ------------------------------------------------------------------- | -------------------------------- |
+| Profile Name | 配置名称                                                            | `Production` / `Development`     |
+| API Endpoint | Mix Space API 地址                                                  | `https://your-domain.com/api/v3` |
+| API Token    | 认证 Token（后台 设定→账号与安全→API Token，作为 x-api-key 头发送） |                                  |
+| Site URL     | 网站地址（用于反向链接转换）                                        | `https://example.com`            |
 
 ### AI 设置
 

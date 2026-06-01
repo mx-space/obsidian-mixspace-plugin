@@ -173,6 +173,9 @@ export default class MixSpacePlugin extends Plugin {
             apiEndpoint: data.apiEndpoint || '',
             token: data.token || '',
             siteUrl: data.siteUrl || '',
+            // Legacy flat users are overwhelmingly v2 backends; honor an
+            // explicit v3 marker if the old data recorded one.
+            apiVersion: data.apiVersion === 'v3' ? 'v3' : 'v2',
           },
         ],
         activeProfileId: 'default',
