@@ -65,7 +65,7 @@ describe('MixSpaceAPI', () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: 'test-token',
+            'x-api-key': 'test-token',
           },
           body: JSON.stringify(notePayload),
         }),
@@ -325,31 +325,49 @@ describe('MixSpaceAPI', () => {
   })
 
   describe('testConnection', () => {
-    it('should return ok when connection is successful', async () => {
-      vi.mocked(requestUrl).mockResolvedValue(mockResponse(200, { ok: 1, isGuest: false }))
+    it('should return ok when authenticated (2xx from owner-only endpoint)', async () => {
+      vi.mocked(requestUrl).mockResolvedValue(mockResponse(200, { data: [] }))
 
       const result = await api.testConnection()
 
       expect(result.ok).toBe(true)
-      expect(result.isGuest).toBe(false)
     })
 
-    it('should return not ok when user is guest', async () => {
-      vi.mocked(requestUrl).mockResolvedValue(mockResponse(200, { ok: 1, isGuest: true }))
+    it('should call the owner-only /snippets endpoint with the x-api-key header', async () => {
+      vi.mocked(requestUrl).mockResolvedValue(mockResponse(200, { data: [] }))
+
+      await api.testConnection()
+
+      expect(requestUrl).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: 'https://api.example.com/snippets',
+          method: 'GET',
+          headers: { 'x-api-key': 'test-token' },
+        }),
+      )
+    })
+
+    it('should return not ok and isGuest on 401 (invalid token)', async () => {
+      vi.mocked(requestUrl).mockResolvedValue(
+        mockResponse(401, { error: { message: 'Invalid token' } }),
+      )
 
       const result = await api.testConnection()
 
       expect(result.ok).toBe(false)
       expect(result.isGuest).toBe(true)
+      expect(result.debug).toContain('Auth failed')
     })
 
-    it('should return not ok on HTTP error', async () => {
-      vi.mocked(requestUrl).mockResolvedValue(mockResponse(401, { message: 'Unauthorized' }))
+    it('should return not ok on other HTTP errors', async () => {
+      vi.mocked(requestUrl).mockResolvedValue(
+        mockResponse(500, { error: { message: 'Server error' } }),
+      )
 
       const result = await api.testConnection()
 
       expect(result.ok).toBe(false)
-      expect(result.debug).toContain('HTTP 401')
+      expect(result.debug).toContain('HTTP 500')
     })
 
     it('should handle network errors', async () => {

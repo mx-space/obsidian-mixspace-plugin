@@ -18,7 +18,9 @@ export class MixSpaceAPI {
 
   private getHeaders(hasBody: boolean) {
     const headers: Record<string, string> = {
-      Authorization: this.profile.token,
+      // Mix Space v13 authenticates API tokens via the `x-api-key` header
+      // (the `Authorization` header is reserved for better-auth session cookies).
+      'x-api-key': this.profile.token,
     }
     if (hasBody) {
       headers['Content-Type'] = 'application/json'
@@ -51,7 +53,7 @@ export class MixSpaceAPI {
       })
 
       // Handle empty response body (common for DELETE requests)
-      let json: T | null = null
+      let json: unknown = null
       try {
         json = response.json
       } catch {
@@ -65,11 +67,19 @@ export class MixSpaceAPI {
       })
 
       if (response.status >= 400) {
+        // Mix Space v13 error shape: { error: { code, message } }.
+        // Fall back to the legacy `message` field and raw text.
+        const j = json as { error?: { message?: string }; message?: string } | null
         const errorMsg =
-          (json as Record<string, unknown>)?.message || response.text || `HTTP ${response.status}`
+          j?.error?.message || j?.message || response.text || `HTTP ${response.status}`
         throw new Error(String(errorMsg))
       }
 
+      // Mix Space v13 wraps successful responses as { data, meta }.
+      // Unwrap `data` so callers receive the resource directly (v2 returned it bare).
+      if (json && typeof json === 'object' && 'data' in json) {
+        return (json as { data: T }).data
+      }
       return json as T
     } catch (error) {
       // Log full error details including any response data
@@ -124,8 +134,9 @@ export class MixSpaceAPI {
 
   async getCategories(): Promise<Category[]> {
     try {
-      const response = await this.request<{ data: Category[] }>('/categories', 'GET')
-      return response.data || []
+      // request() already unwraps the v13 `{ data }` envelope.
+      const categories = await this.request<Category[]>('/categories', 'GET')
+      return categories || []
     } catch {
       return []
     }
@@ -133,8 +144,8 @@ export class MixSpaceAPI {
 
   async getTopics(): Promise<Topic[]> {
     try {
-      const response = await this.request<{ data: Topic[] }>('/topics', 'GET')
-      return response.data || []
+      const topics = await this.request<Topic[]>('/topics', 'GET')
+      return topics || []
     } catch {
       return []
     }
@@ -176,7 +187,9 @@ export class MixSpaceAPI {
   // ===== Connection Test =====
 
   async testConnection(): Promise<{ ok: boolean; isGuest?: boolean; debug?: string }> {
-    const testUrl = `${this.baseUrl}/master/check_logged`
+    // v13 removed /master/check_logged. Use an owner-only GET endpoint instead:
+    // /snippets returns 200 with a valid owner token, 401 with an invalid one.
+    const testUrl = `${this.baseUrl}/snippets`
 
     try {
       console.log('[MixSpace] Testing connection to:', testUrl)
@@ -185,30 +198,38 @@ export class MixSpaceAPI {
         url: testUrl,
         method: 'GET',
         headers: this.getHeaders(false),
+        throw: false, // inspect status ourselves
       })
 
       console.log('[MixSpace] Connection response:', {
         status: response.status,
-        body: response.json,
+        body: response.text,
       })
 
-      // Check for HTTP error status
-      if (response.status >= 400) {
-        const errorMsg = response.json?.message || response.text || `HTTP ${response.status}`
-        return {
-          ok: false,
-          debug: `HTTP ${response.status}: ${errorMsg} (URL: ${testUrl})`,
+      const parseErr = (): string => {
+        try {
+          return (
+            (response.json as { error?: { message?: string } })?.error?.message ||
+            response.text ||
+            `HTTP ${response.status}`
+          )
+        } catch {
+          return response.text || `HTTP ${response.status}`
         }
       }
 
-      const data = response.json as { ok: number; isGuest: boolean } | null
-      const ok = !!(data && data.ok === 1 && !data.isGuest)
-      const isGuest = !!(data && data.isGuest)
-      const debug = response.json
-        ? `Response: ${JSON.stringify(response.json)}`
-        : 'Empty response body'
+      // Reachable but token invalid / not the owner
+      if (response.status === 401 || response.status === 403) {
+        return { ok: false, isGuest: true, debug: `Auth failed: ${parseErr()} (URL: ${testUrl})` }
+      }
 
-      return { ok, isGuest, debug }
+      // Other non-2xx: endpoint / connection problem
+      if (response.status >= 400) {
+        return { ok: false, debug: `HTTP ${response.status}: ${parseErr()} (URL: ${testUrl})` }
+      }
+
+      // 2xx: reachable AND authenticated as owner
+      return { ok: true, debug: `HTTP ${response.status} (URL: ${testUrl})` }
     } catch (e) {
       // Parse different error types for better debugging
       let debug: string

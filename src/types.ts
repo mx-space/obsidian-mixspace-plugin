@@ -145,26 +145,26 @@ export interface PostPayload {
   pin?: string | null
 }
 
-// Mix Space Note response
+// Mix Space Note response (v13: snake_case fields)
 export interface NoteResponse {
-  id: string // MongoDB _id
+  id: string
   nid: number
   title: string
-  created: string
-  modified: string | null
+  created_at: string
+  modified_at: string | null
   mood?: string
   weather?: string
-  topicId?: string
+  topic_id?: string
 }
 
-// Mix Space Post response
+// Mix Space Post response (v13: snake_case fields)
 export interface PostResponse {
   id: string
   title: string
   slug: string
-  created: string
-  modified: string | null
-  categoryId: string
+  created_at: string
+  modified_at: string | null
+  category_id: string
   category: Category
 }
 

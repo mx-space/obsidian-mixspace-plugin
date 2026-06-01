@@ -82,10 +82,10 @@ export class MixSpaceSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('API Endpoint')
-      .setDesc('Your Mix Space API endpoint (e.g., https://api.innei.in/v2)')
+      .setDesc('Your Mix Space API endpoint, ending in /api/v3 (e.g., https://your-domain.com/api/v3)')
       .addText((text) =>
         text
-          .setPlaceholder('https://api.example.com/v2')
+          .setPlaceholder('https://your-domain.com/api/v3')
           .setValue(activeProfile.apiEndpoint)
           .onChange(async (value) => {
             activeProfile.apiEndpoint = value
@@ -95,8 +95,8 @@ export class MixSpaceSettingTab extends PluginSettingTab {
       )
 
     new Setting(containerEl)
-      .setName('Bearer Token')
-      .setDesc('Your Mix Space API token')
+      .setName('API Token')
+      .setDesc('Dashboard → 设定 → 账号与安全 → API Token (sent as the x-api-key header)')
       .addText((text) => {
         text
           .setPlaceholder('Enter your token')

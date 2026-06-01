@@ -473,7 +473,7 @@ export default class MixSpacePlugin extends Plugin {
         await this.updateFrontmatter(file, {
           oid: response.id,
           slug: response.slug,
-          categoryId: response.categoryId,
+          categoryId: response.category_id,
           updated: new Date().toISOString(),
           type: 'post',
         })
