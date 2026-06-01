@@ -173,6 +173,9 @@ export default class MixSpacePlugin extends Plugin {
             apiEndpoint: data.apiEndpoint || '',
             token: data.token || '',
             siteUrl: data.siteUrl || '',
+            // Legacy flat users are overwhelmingly v2 backends; honor an
+            // explicit v3 marker if the old data recorded one.
+            apiVersion: data.apiVersion === 'v3' ? 'v3' : 'v2',
           },
         ],
         activeProfileId: 'default',
@@ -473,7 +476,7 @@ export default class MixSpacePlugin extends Plugin {
         await this.updateFrontmatter(file, {
           oid: response.id,
           slug: response.slug,
-          categoryId: response.categoryId,
+          categoryId: response.category_id,
           updated: new Date().toISOString(),
           type: 'post',
         })

@@ -6,6 +6,7 @@ import {
   DEFAULT_BASE_URLS,
   DEFAULT_PROFILE,
   getActiveProfile,
+  resolveApiVersion,
   type AIProvider,
   type MixSpaceProfile,
 } from './types'
@@ -80,12 +81,34 @@ export class MixSpaceSettingTab extends PluginSettingTab {
     // ===== API Settings =====
     containerEl.createEl('h3', { text: 'API Settings' })
 
+    const effectiveVersion = resolveApiVersion(activeProfile)
+
+    new Setting(containerEl)
+      .setName('API Version')
+      .setDesc(
+        'v3 (Mix Space v13+, x-api-key 认证) 或 v2 (legacy, Authorization 认证)。Auto 会按 endpoint 末段 (/api/v2 或 /api/v3) 推断。',
+      )
+      .addDropdown((d) => {
+        d.addOption('auto', 'Auto (detect from endpoint)')
+        d.addOption('v3', 'Mix Space v3 (v13+)')
+        d.addOption('v2', 'Mix Space v2 (legacy)')
+        d.setValue(activeProfile.apiVersion ?? 'auto')
+        d.onChange(async (v) => {
+          activeProfile.apiVersion = v === 'auto' ? undefined : (v as 'v2' | 'v3')
+          await this.plugin.saveSettings()
+          this.plugin.onProfileChange() // triggers api.updateProfile -> recompute apiVersion
+          this.display() // refresh to update endpoint/token copy below
+        })
+      })
+
     new Setting(containerEl)
       .setName('API Endpoint')
-      .setDesc('Your Mix Space API endpoint (e.g., https://api.innei.in/v2)')
+      .setDesc(
+        `Your Mix Space API endpoint, ending in /api/${effectiveVersion} (e.g., https://your-domain.com/api/${effectiveVersion})`,
+      )
       .addText((text) =>
         text
-          .setPlaceholder('https://api.example.com/v2')
+          .setPlaceholder(`https://your-domain.com/api/${effectiveVersion}`)
           .setValue(activeProfile.apiEndpoint)
           .onChange(async (value) => {
             activeProfile.apiEndpoint = value
@@ -95,8 +118,12 @@ export class MixSpaceSettingTab extends PluginSettingTab {
       )
 
     new Setting(containerEl)
-      .setName('Bearer Token')
-      .setDesc('Your Mix Space API token')
+      .setName('API Token')
+      .setDesc(
+        effectiveVersion === 'v2'
+          ? 'Dashboard → 设定 → 账号与安全 → API Token (sent as the Authorization header)'
+          : 'Dashboard → 设定 → 账号与安全 → API Token (sent as the x-api-key header)',
+      )
       .addText((text) => {
         text
           .setPlaceholder('Enter your token')

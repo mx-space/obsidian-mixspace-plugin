@@ -51,11 +51,12 @@ describe('MixSpaceAPI', () => {
         id: 'note123',
         nid: 42,
         title: 'Test Note',
-        created: '2024-01-01',
-        modified: null,
+        created_at: '2024-01-01',
+        modified_at: null,
       }
 
-      vi.mocked(requestUrl).mockResolvedValue(mockResponse(200, responseData))
+      // v3 wraps the resource in a { data } envelope; request() unwraps it.
+      vi.mocked(requestUrl).mockResolvedValue(mockResponse(200, { data: responseData }))
 
       const result = await api.createNote(notePayload)
 
@@ -65,7 +66,7 @@ describe('MixSpaceAPI', () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: 'test-token',
+            'x-api-key': 'test-token',
           },
           body: JSON.stringify(notePayload),
         }),
@@ -138,10 +139,11 @@ describe('MixSpaceAPI', () => {
         id: 'post123',
         title: 'Test Post',
         slug: 'test-post',
-        categoryId: 'cat123',
+        category_id: 'cat123',
       }
 
-      vi.mocked(requestUrl).mockResolvedValue(mockResponse(200, responseData))
+      // v3 wraps the resource in a { data } envelope; request() unwraps it.
+      vi.mocked(requestUrl).mockResolvedValue(mockResponse(200, { data: responseData }))
 
       const result = await api.createPost(postPayload)
 
@@ -325,31 +327,49 @@ describe('MixSpaceAPI', () => {
   })
 
   describe('testConnection', () => {
-    it('should return ok when connection is successful', async () => {
-      vi.mocked(requestUrl).mockResolvedValue(mockResponse(200, { ok: 1, isGuest: false }))
+    it('should return ok when authenticated (2xx from owner-only endpoint)', async () => {
+      vi.mocked(requestUrl).mockResolvedValue(mockResponse(200, { data: [] }))
 
       const result = await api.testConnection()
 
       expect(result.ok).toBe(true)
-      expect(result.isGuest).toBe(false)
     })
 
-    it('should return not ok when user is guest', async () => {
-      vi.mocked(requestUrl).mockResolvedValue(mockResponse(200, { ok: 1, isGuest: true }))
+    it('should call the owner-only /snippets endpoint with the x-api-key header', async () => {
+      vi.mocked(requestUrl).mockResolvedValue(mockResponse(200, { data: [] }))
+
+      await api.testConnection()
+
+      expect(requestUrl).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: 'https://api.example.com/snippets',
+          method: 'GET',
+          headers: { 'x-api-key': 'test-token' },
+        }),
+      )
+    })
+
+    it('should return not ok and isGuest on 401 (invalid token)', async () => {
+      vi.mocked(requestUrl).mockResolvedValue(
+        mockResponse(401, { error: { message: 'Invalid token' } }),
+      )
 
       const result = await api.testConnection()
 
       expect(result.ok).toBe(false)
       expect(result.isGuest).toBe(true)
+      expect(result.debug).toContain('Auth failed')
     })
 
-    it('should return not ok on HTTP error', async () => {
-      vi.mocked(requestUrl).mockResolvedValue(mockResponse(401, { message: 'Unauthorized' }))
+    it('should return not ok on other HTTP errors', async () => {
+      vi.mocked(requestUrl).mockResolvedValue(
+        mockResponse(500, { error: { message: 'Server error' } }),
+      )
 
       const result = await api.testConnection()
 
       expect(result.ok).toBe(false)
-      expect(result.debug).toContain('HTTP 401')
+      expect(result.debug).toContain('HTTP 500')
     })
 
     it('should handle network errors', async () => {
@@ -386,6 +406,165 @@ describe('MixSpaceAPI', () => {
 
       expect(result.ok).toBe(false)
       expect(result.debug).toContain('SSL/Certificate error')
+    })
+  })
+
+  describe('v2 compatibility', () => {
+    const v2Profile: MixSpaceProfile = { ...testProfile, apiVersion: 'v2' }
+    let v2api: MixSpaceAPI
+
+    beforeEach(() => {
+      v2api = new MixSpaceAPI(v2Profile)
+    })
+
+    it('should send the Authorization header (not x-api-key)', async () => {
+      vi.mocked(requestUrl).mockResolvedValue(
+        mockResponse(200, {
+          id: 'note123',
+          nid: 1,
+          title: 'T',
+          created: '2024-01-01',
+          modified: null,
+        }),
+      )
+
+      await v2api.createNote({ title: 'T', text: 'C' })
+
+      expect(requestUrl).toHaveBeenCalledWith(
+        expect.objectContaining({
+          headers: {
+            Authorization: 'test-token',
+            'Content-Type': 'application/json',
+          },
+        }),
+      )
+    })
+
+    it('should not unwrap a bare response and should normalize note fields', async () => {
+      vi.mocked(requestUrl).mockResolvedValue(
+        mockResponse(200, {
+          id: 'note123',
+          nid: 42,
+          title: 'Test Note',
+          created: '2024-01-01',
+          modified: null,
+          topicId: 't1',
+        }),
+      )
+
+      const result = await v2api.createNote({ title: 'Test Note', text: 'C' })
+
+      expect(result).toEqual({
+        id: 'note123',
+        nid: 42,
+        title: 'Test Note',
+        created_at: '2024-01-01',
+        modified_at: null,
+        mood: undefined,
+        weather: undefined,
+        topic_id: 't1',
+      })
+    })
+
+    it('should normalize post camelCase fields to snake_case', async () => {
+      vi.mocked(requestUrl).mockResolvedValue(
+        mockResponse(200, {
+          id: 'post123',
+          title: 'Test Post',
+          slug: 'test-post',
+          created: '2024-01-01',
+          modified: null,
+          categoryId: 'c1',
+          category: { id: 'c1', name: 'Tech', slug: 'tech' },
+        }),
+      )
+
+      const result = await v2api.createPost({
+        title: 'Test Post',
+        text: 'C',
+        slug: 'test-post',
+        categoryId: 'c1',
+      })
+
+      expect(result).toEqual({
+        id: 'post123',
+        title: 'Test Post',
+        slug: 'test-post',
+        created_at: '2024-01-01',
+        modified_at: null,
+        category_id: 'c1',
+        category: { id: 'c1', name: 'Tech', slug: 'tech' },
+      })
+    })
+
+    it('should read the v2 { message } error shape', async () => {
+      vi.mocked(requestUrl).mockResolvedValue(mockResponse(400, { message: 'bad' }))
+
+      await expect(v2api.createNote({ title: 'T', text: 'C' })).rejects.toThrow('bad')
+    })
+
+    it('should unwrap the v2 { data } envelope for categories', async () => {
+      // v2 list endpoints still wrap results in { data }, even though v2 single
+      // resources are bare. getCategories must unwrap it so callers get an array.
+      const categories = [{ id: 'c1', name: 'Tech', slug: 'tech' }]
+      vi.mocked(requestUrl).mockResolvedValue(mockResponse(200, { data: categories }))
+
+      const result = await v2api.getCategories()
+
+      expect(result).toEqual(categories)
+    })
+
+    it('should unwrap the v2 { data } envelope for topics', async () => {
+      const topics = [{ id: 't1', name: 'My Topic', slug: 'my-topic' }]
+      vi.mocked(requestUrl).mockResolvedValue(mockResponse(200, { data: topics }))
+
+      const result = await v2api.getTopics()
+
+      expect(result).toEqual(topics)
+    })
+
+    it('should resolve a v2 category by name through the { data } envelope', async () => {
+      // Guards the downstream .find() path that crashed when getCategories
+      // returned the raw envelope object instead of an array.
+      const categories = [{ id: 'c1', name: 'Technology', slug: 'tech' }]
+      vi.mocked(requestUrl).mockResolvedValue(mockResponse(200, { data: categories }))
+
+      const result = await v2api.getCategoryByNameOrSlug('Technology')
+
+      expect(result).toEqual({ id: 'c1', name: 'Technology', slug: 'tech' })
+    })
+
+    it('should test connection against /master/check_logged with the Authorization header', async () => {
+      vi.mocked(requestUrl).mockResolvedValue(mockResponse(200, { ok: 1, isGuest: false }))
+
+      const result = await v2api.testConnection()
+
+      expect(result.ok).toBe(true)
+      expect(requestUrl).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: 'https://api.example.com/master/check_logged',
+          method: 'GET',
+          headers: { Authorization: 'test-token' },
+        }),
+      )
+    })
+
+    it('should report guest when isGuest is true', async () => {
+      vi.mocked(requestUrl).mockResolvedValue(mockResponse(200, { ok: 1, isGuest: true }))
+
+      const result = await v2api.testConnection()
+
+      expect(result.ok).toBe(false)
+      expect(result.isGuest).toBe(true)
+    })
+
+    it('should report guest on 401', async () => {
+      vi.mocked(requestUrl).mockResolvedValue(mockResponse(401, null))
+
+      const result = await v2api.testConnection()
+
+      expect(result.ok).toBe(false)
+      expect(result.isGuest).toBe(true)
     })
   })
 

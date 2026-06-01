@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   getActiveProfile,
+  resolveApiVersion,
   DEFAULT_PROFILE,
   DEFAULT_SETTINGS,
   DEFAULT_AI_SETTINGS,
@@ -9,6 +10,40 @@ import {
   type MixSpaceSettings,
   type MixSpaceProfile,
 } from './types'
+
+describe('resolveApiVersion', () => {
+  it('should honor an explicit v2', () => {
+    expect(resolveApiVersion({ apiVersion: 'v2', apiEndpoint: '' })).toBe('v2')
+  })
+
+  it('should honor an explicit v3', () => {
+    expect(resolveApiVersion({ apiVersion: 'v3', apiEndpoint: '' })).toBe('v3')
+  })
+
+  it('should infer v2 from an /api/v2 endpoint', () => {
+    expect(resolveApiVersion({ apiEndpoint: 'https://x/api/v2' })).toBe('v2')
+  })
+
+  it('should infer v2 from an /api/v2/ endpoint (trailing slash)', () => {
+    expect(resolveApiVersion({ apiEndpoint: 'https://x/api/v2/' })).toBe('v2')
+  })
+
+  it('should infer v3 from an /api/v3 endpoint', () => {
+    expect(resolveApiVersion({ apiEndpoint: 'https://x/api/v3' })).toBe('v3')
+  })
+
+  it('should default to v3 when the endpoint has no version segment', () => {
+    expect(resolveApiVersion({ apiEndpoint: 'https://x' })).toBe('v3')
+  })
+
+  it('should default to v3 for an empty endpoint', () => {
+    expect(resolveApiVersion({ apiEndpoint: '' })).toBe('v3')
+  })
+
+  it('should let an explicit v3 override an /api/v2 endpoint', () => {
+    expect(resolveApiVersion({ apiVersion: 'v3', apiEndpoint: 'https://x/api/v2' })).toBe('v3')
+  })
+})
 
 describe('getActiveProfile', () => {
   it('should return the active profile when it exists', () => {
